@@ -9,6 +9,11 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <string.h>
+#include <stdlib.h>
+
+#include <iostream>
+#include <cstring>
+#include <cstdlib>
 
 // 'chmod u+x count.sh' in the terminal to run the .sh file
 /*
@@ -317,12 +322,12 @@ Do this by creating a pair of pipes to every child process (in each PCB). A kern
 			else if ( pid == 0) // in child process
 			{
 				// using nextProc here makes the output not as clean. Not sure why.
-		            	close (pipes[P2K][READ_END]);
-            			close (pipes[K2P][WRITE_END]);
+		            	close (nextProc->pipes[P2K][READ_END]);
+            			close (nextProc->pipes[K2P][WRITE_END]);
 
 			        // assign fildes 3 and 4 to the pipe ends in the child
-				dup2 (pipes[P2K][WRITE_END], 3);
-				dup2 (pipes[K2P][READ_END], 4);
+				dup2 (nextProc->pipes[P2K][WRITE_END], 3);
+				dup2 (nextProc->pipes[K2P][READ_END], 4);
 				execl( new_list.front() -> name, new_list.front() -> name, NULL);
 			}
 			else // in parent process
@@ -494,21 +499,28 @@ You'll need to create a SIGTRAP ISR that reads the request and sends back a resp
     ** if more than one has arrived.
     */
 
+	int a = (sys_time - running->started);
+	char *intStr = itoa(a);
+	//string str = string(intStr);
+
 	for (int i = 0; i < NUM_PIPES; i+=2)
     	{
         char buf[1024];
         int num_read = read (running->pipes[P2K][READ_END], buf, 1023);
         if (num_read > 0)
         {
-		printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111");
             buf[num_read] = '\0';
             WRITE("kernel read: ");
             WRITE(buf);
             WRITE("\n");
 
             // respond
-            const char *message = "from the kernel to the process";
+            const char *message = "from the kernel to the process \n";
             write (running->pipes[K2P][WRITE_END], message, strlen (message));
+
+	    const char *message2 = intStr;
+            write (running->pipes[K2P][WRITE_END], message2, strlen (message));
+
 		
 		kill(running->pid, SIGSTOP);
         }
