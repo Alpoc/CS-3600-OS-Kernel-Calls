@@ -11,6 +11,8 @@
 #include <sys/wait.h>
 #include <time.h>
 
+
+
 #define READ 0
 #define WRITE 1
 
@@ -21,13 +23,28 @@
 A kernel call is made by putting a request in the pipe from the child to the kernel and then sending the kernel a SIGTRAP
 */
 
+using namespace std;
 
 int main (int argc, char** argv)
 {
-	pid_t ppid = getppid();
-	write(3, "ps", 2);
-	kill(pid, SIGTRAP);
-	read(4);
+	int pid = getpid();
+	int ppid = getppid();
+
+	std::cout << "writing in pid " << pid << "\n";
+	const char *message = "from the process to the kernel";
+	write (TO_KERNEL, message, strlen (message));
+
+	std::cout << "trapping to " << ppid << " in pid " << pid << "\n";
+	kill(ppid, SIGTRAP);
+
+	
+	std::cout << "reading in pid " << pid << "\n";
+	char buf[1024];
+	int num_read = read (FROM_KERNEL, buf, 1023);
+	buf[num_read] = '\0';
+	std::cout << "process " << pid << "read: " << buf << "\n";
+
+	exit (0);
 
 
 

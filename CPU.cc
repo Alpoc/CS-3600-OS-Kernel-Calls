@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <fcntl.h>
+#include <string.h>
 
 // 'chmod u+x count.sh' in the terminal to run the .sh file
 /*
@@ -74,6 +76,19 @@ Add the following functionality.
 
 */
 
+#define READ_END 0
+#define WRITE_END 1
+
+#define NUM_CHILDREN 5
+#define NUM_PIPES NUM_CHILDREN*2
+
+#define P2K i
+#define K2P i+1
+
+#define WRITE(a) { const char *foo = a; write (1, foo, strlen (foo)); }
+
+int pipes[NUM_PIPES][2];
+
 #define NUM_SECONDS 20
 
 // make sure the asserts work
@@ -124,8 +139,7 @@ struct PCB
     int interrupts;     // number of times interrupted
     int switches;       // may be < interrupts
     int started;        // the time this process started
-    int p2k[2];
-    int k2p[2];
+    int p2k[2];		// Pipe kernal to process
 };
 
 /*
@@ -246,7 +260,20 @@ Do this by creating a pair of pipes to every child process (in each PCB). A kern
 			running -> state = READY;
 			PCB *nextProc = new_list.front();
 			
-			
+			// create the pipes
+			int i = 0;
+    			for (int i = 0; i < NUM_PIPES; i+=2)
+    			{
+        			// i is from process to kernel, K2P from kernel to process
+        			assert (pipe (pipes[P2K]) == 0);
+        			assert (pipe (pipes[K2P]) == 0);
+
+        			// make the read end of the kernel pipe non-blocking.
+        			assert (fcntl (pipes[P2K][READ_END], F_SETFL,
+           			fcntl(pipes[P2K][READ_END], F_GETFL) | O_NONBLOCK) == 0);
+    			}
+					
+			nextProc->p2k[1] = *pipes[P2K];
 
 			pid_t pid = fork();
 			if ( pid < 0 )
@@ -256,6 +283,12 @@ Do this by creating a pair of pipes to every child process (in each PCB). A kern
 			else if ( pid == 0) // in child process
 			{
 				// using nextProc here makes the output not as clean. Not sure why.
+		            	close (pipes[P2K][READ_END]);
+            			close (pipes[K2P][WRITE_END]);
+
+			        // assign fildes 3 and 4 to the pipe ends in the child
+				dup2 (pipes[P2K][WRITE_END], 3);
+				dup2 (pipes[K2P][READ_END], 4);
 				execl( new_list.front() -> name, new_list.front() -> name, NULL);
 			}
 			else // in parent process
@@ -336,9 +369,9 @@ void process_done (int signum)
     c) Start the idle process to use the rest of the time slice.
 */
 	cout << "Process " << running->name << " was:\n";
-	cout << "interrupted " << running->interrupts << " times\n";
-	cout << "switched " << running->switches << " times\n";
-	cout << "and ran for " << sys_time - running->started << " seconds\n";
+	cout << "interrupted " << running->interrupts << " time(s)\n";
+	cout << "switched " << running->switches << " time(s)\n";
+	cout << "and ran for " << sys_time - running->started << " second(s)\n";
 	running->state = TERMINATED;
 	running = idle;
 
@@ -367,12 +400,38 @@ void process_done (int signum)
     }
 }
 
-void receive_trap(int signum) 
+void process_trap(int signum) 
 {
 /*
 You'll need to create a SIGTRAP ISR that reads the request and sends back a response. Implement at least the listing of the names of all the current processes and the system time, and implement a child process that requests both.
 */
-	
+    assert (signum == SIGTRAP);
+    WRITE("---- entering process_trap\n");
+
+    /*
+    ** poll all the pipes as we don't know which process sent the trap, nor
+    ** if more than one has arrived.
+    */
+	list<PCB*>::iterator it; 
+	for ( it = processes.begin(); it != processes.end(); it++)
+    	{
+        char buf[1024];
+        int num_read = read ((*it)->p2k[READ_END], buf, 1023);
+        if (num_read > 0)
+        {
+            buf[num_read] = '\0';
+            WRITE("kernel read: ");
+            WRITE(buf);
+            WRITE("\n");
+
+            // respond
+            const char *message = "from the kernel to the process";
+            //write ((*it)->p2k[4][WRITE_END], message, strlen (message));
+		
+		kill((*it)->pid, SIGSTOP);
+        }
+    }
+    WRITE("---- leaving process_trap\n");
 
 }
 /*
@@ -400,7 +459,7 @@ void boot (int pid)
 {
     ISV[SIGALRM] = scheduler;       create_handler (SIGALRM, ISR);
     ISV[SIGCHLD] = process_done;    create_handler (SIGCHLD, ISR);
-    ISV[SIGTRAP] = receive_trap;    create_handler (SIGTRAP, ISR);
+    ISV[SIGTRAP] = process_trap;    create_handler (SIGTRAP, ISR);
     // start up clock interrupt
     int ret;
     if ((ret = fork ()) == 0)
