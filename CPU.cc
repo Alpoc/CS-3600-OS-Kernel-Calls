@@ -88,6 +88,7 @@ Add the following functionality.
 #define WRITE(a) { const char *foo = a; write (1, foo, strlen (foo)); }
 
 int pipes[NUM_PIPES][2];
+int child_count = 0;
 
 #define NUM_SECONDS 20
 
@@ -139,7 +140,7 @@ struct PCB
     int interrupts;     // number of times interrupted
     int switches;       // may be < interrupts
     int started;        // the time this process started
-    int p2k[2];		// Pipe kernal to process
+    int pipes[NUM_PIPES][2];		// pipe kernal to process
 };
 
 /*
@@ -228,6 +229,39 @@ struct sigaction *create_handler (int signum, void (*handler)(int))
     return (action);
 }
 
+int eye2eh (int i, char *buf, int bufsize, int base)
+{
+    if (bufsize < 1) return (-1);
+    buf[bufsize-1] = '\0';
+    if (bufsize == 1) return (0);
+    if (base < 2 || base > 16)
+    {
+        for (int j = bufsize-2; j >= 0; j--)
+        {
+            buf[j] = ' ';
+        }
+        return (-1);
+    }
+
+    int count = 0;
+    const char *digits = "0123456789ABCDEF";
+    for (int j = bufsize-2; j >= 0; j--)
+    {
+        if (i == 0)
+        {
+            buf[j] = ' ';
+        }
+        else
+        {
+            buf[j] = digits[i%base];
+            i = i/base;
+            count++;
+        }
+    }
+    if (i != 0) return (-1);
+    return (count);
+}
+
 
 // We all worked together: Ryan, Eli
 PCB* choose_process ()
@@ -265,15 +299,15 @@ Do this by creating a pair of pipes to every child process (in each PCB). A kern
     			for (int i = 0; i < NUM_PIPES; i+=2)
     			{
         			// i is from process to kernel, K2P from kernel to process
-        			assert (pipe (pipes[P2K]) == 0);
-        			assert (pipe (pipes[K2P]) == 0);
+        			assert (pipe (nextProc->pipes[P2K]) == 0);
+        			assert (pipe (nextProc->pipes[K2P]) == 0);
 
         			// make the read end of the kernel pipe non-blocking.
         			assert (fcntl (pipes[P2K][READ_END], F_SETFL,
            			fcntl(pipes[P2K][READ_END], F_GETFL) | O_NONBLOCK) == 0);
     			}
 					
-			nextProc->p2k[1] = *pipes[P2K];
+			//nextProc->pipes[1] = *pipes[P2K];
 
 			pid_t pid = fork();
 			if ( pid < 0 )
@@ -368,6 +402,52 @@ void process_done (int signum)
     b) Change the state to TERMINATED.
     c) Start the idle process to use the rest of the time slice.
 */
+
+	cout << "Process " << running->name << " was:\n";
+	cout << "interrupted " << running->interrupts << " time(s)\n";
+	cout << "switched " << running->switches << " time(s)\n";
+	cout << "and ran for " << sys_time - running->started << " second(s)\n";
+	running->state = TERMINATED;
+	running = idle;
+
+
+    assert (signum == SIGCHLD);
+    WRITE("---- entering child_done\n");
+
+    for (;;)
+    {
+
+        int status, cpid;
+        cpid = waitpid (-1, &status, WNOHANG);
+
+        if (cpid < 0)
+        {
+            WRITE("cpid < 0\n");
+            kill (0, SIGTERM);
+        }
+        else if (cpid == 0)
+        {
+            WRITE("cpid == 0\n");
+            break;
+        }
+        else
+        {
+            char buf[10];
+            assert (eye2eh (cpid, buf, 10, 10) != -1);
+            WRITE("process exited:");
+            WRITE(buf);
+            WRITE("\n");
+            child_count++;
+            if (child_count == NUM_CHILDREN)
+            {
+                kill (0, SIGTERM);
+            }
+        }
+    }
+
+    WRITE("---- leaving child_done\n");
+
+/*
 	cout << "Process " << running->name << " was:\n";
 	cout << "interrupted " << running->interrupts << " time(s)\n";
 	cout << "switched " << running->switches << " time(s)\n";
@@ -398,6 +478,7 @@ void process_done (int signum)
     {
         dprint (WEXITSTATUS (status));
     }
+*/
 }
 
 void process_trap(int signum) 
@@ -412,13 +493,14 @@ You'll need to create a SIGTRAP ISR that reads the request and sends back a resp
     ** poll all the pipes as we don't know which process sent the trap, nor
     ** if more than one has arrived.
     */
-	list<PCB*>::iterator it; 
-	for ( it = processes.begin(); it != processes.end(); it++)
+
+	for (int i = 0; i < NUM_PIPES; i+=2)
     	{
         char buf[1024];
-        int num_read = read ((*it)->p2k[READ_END], buf, 1023);
+        int num_read = read (running->pipes[P2K][READ_END], buf, 1023);
         if (num_read > 0)
         {
+		printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111");
             buf[num_read] = '\0';
             WRITE("kernel read: ");
             WRITE(buf);
@@ -426,13 +508,12 @@ You'll need to create a SIGTRAP ISR that reads the request and sends back a resp
 
             // respond
             const char *message = "from the kernel to the process";
-            //write ((*it)->p2k[4][WRITE_END], message, strlen (message));
+            write (running->pipes[K2P][WRITE_END], message, strlen (message));
 		
-		kill((*it)->pid, SIGSTOP);
+		kill(running->pid, SIGSTOP);
         }
     }
     WRITE("---- leaving process_trap\n");
-
 }
 /*
 ** stop the running process and index into the ISV to call the ISR
@@ -508,6 +589,7 @@ void create_idle ()
     idle->switches = 0;
     idle->started = sys_time;
 }
+
 
 //Luke Smith helped me with this part, its a mirror of create_idle
 
