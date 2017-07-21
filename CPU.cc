@@ -234,8 +234,11 @@ enum STATE { 0 NEW, 1 RUNNING, 2 WAITING, 3 READY, TERMINATED };
     c) Modify choose_process to round robin the processes in the processes
         queue that are READY. If no process is READY in the queue, execute
         the idle process.
-*/	
-
+*/
+/*
+Add kernel calls to your VirtuOS project.
+Do this by creating a pair of pipes to every child process (in each PCB). A kernel call is made by putting a request in the pipe from the child to the kernel and then sending the kernel a SIGTRAP.	
+*/
 
 		running -> interrupts ++;
 		if (!new_list.empty()) 
@@ -366,6 +369,10 @@ void process_done (int signum)
 
 void receive_trap(int signum) 
 {
+/*
+You'll need to create a SIGTRAP ISR that reads the request and sends back a response. Implement at least the listing of the names of all the current processes and the system time, and implement a child process that requests both.
+*/
+	
 
 }
 /*
@@ -393,7 +400,7 @@ void boot (int pid)
 {
     ISV[SIGALRM] = scheduler;       create_handler (SIGALRM, ISR);
     ISV[SIGCHLD] = process_done;    create_handler (SIGCHLD, ISR);
-    ISV[SIGTRAP] = receive_trap;	    create_handler (SIGTRAP, ISR);
+    ISV[SIGTRAP] = receive_trap;    create_handler (SIGTRAP, ISR);
     // start up clock interrupt
     int ret;
     if ((ret = fork ()) == 0)
