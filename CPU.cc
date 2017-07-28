@@ -36,7 +36,6 @@ This program sets up pipes for child processes so that the parrent "CPU.cc" can 
 // the way you use this in your PCB, this needs to be 2. 2 pipes for 2-way
 // communication between the kernel and a child
 #define NUM_PIPES 2
-#define NUM_CHILDREN
 
 #define WRITE(a) { const char *foo = a; write (1, foo, strlen (foo)); }
 
@@ -358,6 +357,7 @@ void process_done (int signum)
             WRITE("process exited:");
             WRITE(buf);
             WRITE("\n");
+	    // I am not sure how we should be setting NUM_CHILDREN so im leaving it out for now.
             //child_count++;
             //if (child_count == NUM_CHILDREN)
             //{
