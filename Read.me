@@ -3,3 +3,5 @@ Due date: Sunday, July 30, 2017, 11:55 PM
 Maximum number of files: 1
 Type of work: Individual work
 Add kernel calls to your VirtuOS project. Do this by creating a pair of pipes to every child process (in each PCB). A kernel call is made by putting a request in the pipe from the child to the kernel and then sending the kernel a SIGTRAP. You'll need to create a SIGTRAP ISR that reads the request and sends back a response. Implement at least the listing of the names of all the current processes and the system time, and implement a child process that requests both. Here are two files that demonstrate using pipes and traps.
+
+"main.cc" is the original souce which was then disected and put into "CPU.cc"

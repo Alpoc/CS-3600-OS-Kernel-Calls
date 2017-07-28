@@ -1,3 +1,12 @@
+//Dalton Wiebold
+
+/*
+Project Name: Kernal Calls
+
+This program sets up pipes for child processes so that the parrent "CPU.cc" can send and recieve messages to/from
+	"child.cc". This project is built off of "CPU.cc" which put processes into a PCB, forked and execled them.
+	Then if the processes were not done they were round robined. 
+*/
 #include <iostream>
 #include <list>
 #include <iterator>
@@ -14,84 +23,27 @@
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
+#include <string>
 
-// 'chmod u+x count.sh' in the terminal to run the .sh file
-/*
-This program does the following.
-1) Create handlers for two signals.
-2) Create an idle process which will be executed when there is nothing
-   else to do.
-3) Create a send_signals process that sends a SIGALRM every so often
-
-When run, it should produce the following output (approximately):
-
-$ ./a.out
-in CPU.cc at 247 main pid = 26428
-state:    1
-name:     IDLE
-pid:      26430
-ppid:     0
-slices:   0
-switches: 0
-started:  0
-in CPU.cc at 100 at beginning of send_signals getpid () = 26429
-in CPU.cc at 216 idle getpid () = 26430
-in CPU.cc at 222 going to sleep
-in CPU.cc at 106 sending signal = 14
-in CPU.cc at 107 to pid = 26428
-in CPU.cc at 148 stopped running->pid = 26430
-in CPU.cc at 155 continuing tocont->pid = 26430
-in CPU.cc at 106 sending signal = 14
-in CPU.cc at 107 to pid = 26428
-in CPU.cc at 148 stopped running->pid = 26430
-in CPU.cc at 155 continuing tocont->pid = 26430
-in CPU.cc at 106 sending signal = 14
-in CPU.cc at 107 to pid = 26428
-in CPU.cc at 115 at end of send_signals
-Terminated
----------------------------------------------------------------------------
-Add the following functionality.
-1) Change the NUM_SECONDS to 20.
-
-2) Take any number of arguments for executables, and place each on new_list.
-    The executable will not require arguments themselves.
-
-3) When a SIGALRM arrives, scheduler() will be called. It calls
-    choose_process which currently always returns the idle process. Do the
-    following.
-    a) Update the PCB for the process that was interrupted including the
-        number of context switches and interrupts it had, and changing its
-        state from RUNNING to READY.
-    b) If there are any processes on the new_list, do the following.
-        i) Take the one off the new_list and put it on the processes list.
-        ii) Change its state to RUNNING, and fork() and execl() it.
-    c) Modify choose_process to round robin the processes in the processes
-        queue that are READY. If no process is READY in the queue, execute
-        the idle process.
-
-4) When a SIGCHLD arrives notifying that a child has exited, process_done() is
-    called. process_done() currently only prints out the PID and the status.
-    a) Add the printing of the information in the PCB including the number
-        of times it was interrupted, the number of times it was context
-        switched (this may be fewer than the interrupts if a process
-        becomes the only non-idle process in the ready queue), and the total
-        system time the process took.
-    b) Change the state to TERMINATED.
-    c) Start the idle process to use the rest of the time slice.
-
-*/
 
 #define READ_END 0
 #define WRITE_END 1
 
+// you don't really know at this point how many childern you'll have, so
+// don't hard code it here.
 #define NUM_CHILDREN 5
-#define NUM_PIPES NUM_CHILDREN*2
 
-#define P2K i
-#define K2P i+1
+// the way you use this in your PCB, this needs to be 2. 2 pipes for 2-way
+// communication between the kernel and a child
+#define NUM_PIPES 2
+
+// you don't need these
+// #define P2K i
+// #define K2P i+1
 
 #define WRITE(a) { const char *foo = a; write (1, foo, strlen (foo)); }
 
+// this isn't the right place to create any of the pipes.
 int pipes[NUM_PIPES][2];
 int child_count = 0;
 
@@ -145,7 +97,9 @@ struct PCB
     int interrupts;     // number of times interrupted
     int switches;       // may be < interrupts
     int started;        // the time this process started
-    int pipes[NUM_PIPES][2];		// pipe kernal to process
+    // best to differentiate the two different pipes
+    int p2k[2];		    // pipe kernal to process
+    int k2p[2];		    // pipe process to kernal
 };
 
 /*
@@ -267,52 +221,18 @@ int eye2eh (int i, char *buf, int bufsize, int base)
     return (count);
 }
 
-
-// We all worked together: Ryan, Eli
 PCB* choose_process ()
 {
-/*
-enum STATE { 0 NEW, 1 RUNNING, 2 WAITING, 3 READY, TERMINATED };
-
-
-3) When a SIGALRM arrives, scheduler() will be called. It calls
-    choose_process which currently always returns the idle process. Do the
-    following.
-    a) Update the PCB for the process that was interrupted including the
-        number of context switches and interrupts it had, and changing its
-        state from RUNNING to READY.
-    b) If there are any processes on the new_list, do the following.
-        i) Take the one off the new_list and put it on the processes list.
-        ii) Change its state to RUNNING, and fork() and execl() it.
-    c) Modify choose_process to round robin the processes in the processes
-        queue that are READY. If no process is READY in the queue, execute
-        the idle process.
-*/
 /*
 Add kernel calls to your VirtuOS project.
 Do this by creating a pair of pipes to every child process (in each PCB). A kernel call is made by putting a request in the pipe from the child to the kernel and then sending the kernel a SIGTRAP.	
 */
-
+		// This section is for if there are new processes that need to be forked and execled. 
 		running -> interrupts ++;
 		if (!new_list.empty()) 
 		{
 			running -> state = READY;
 			PCB *nextProc = new_list.front();
-			
-			// create the pipes
-			int i = 0;
-    			for (int i = 0; i < NUM_PIPES; i+=2)
-    			{
-        			// i is from process to kernel, K2P from kernel to process
-        			assert (pipe (nextProc->pipes[P2K]) == 0);
-        			assert (pipe (nextProc->pipes[K2P]) == 0);
-
-        			// make the read end of the kernel pipe non-blocking.
-        			assert (fcntl (pipes[P2K][READ_END], F_SETFL,
-           			fcntl(pipes[P2K][READ_END], F_GETFL) | O_NONBLOCK) == 0);
-    			}
-					
-			//nextProc->pipes[1] = *pipes[P2K];
 
 			pid_t pid = fork();
 			if ( pid < 0 )
@@ -321,14 +241,15 @@ Do this by creating a pair of pipes to every child process (in each PCB). A kern
 			}
 			else if ( pid == 0) // in child process
 			{
-				// using nextProc here makes the output not as clean. Not sure why.
-		            	close (nextProc->pipes[P2K][READ_END]);
-            			close (nextProc->pipes[K2P][WRITE_END]);
 
-			        // assign fildes 3 and 4 to the pipe ends in the child
-				dup2 (nextProc->pipes[P2K][WRITE_END], 3);
-				dup2 (nextProc->pipes[K2P][READ_END], 4);
-				execl( new_list.front() -> name, new_list.front() -> name, NULL);
+				assert (close (nextProc->p2k[READ_END]) == 0);
+        			assert (close (nextProc->k2p[WRITE_END]) == 0);
+
+        			// assign fildes 3 and 4 to the pipe ends in the child
+        			assert (dup2 (nextProc->p2k[WRITE_END], 3) >= 0);
+        			assert (dup2 (nextProc->k2p[READ_END], 4) >= 0);
+				execl (new_list.front()->name, new_list.front()->name, NULL);
+                		perror ("execl");
 			}
 			else // in parent process
 			{
@@ -346,6 +267,7 @@ Do this by creating a pair of pipes to every child process (in each PCB). A kern
 		}
 
 //		Two for loops isnt completely needed here. I started with one mindset and though about switching it to one.
+//		This is the round robin section.
 //		The break also should save a tiny amount of time. 
 		list<PCB*>::iterator it; 
 		for ( it = processes.begin(); it != processes.end(); it++)
@@ -396,17 +318,6 @@ void scheduler (int signum)
 
 void process_done (int signum)
 {
-/*
-4) When a SIGCHLD arrives notifying that a child has exited, process_done() is
-    called. process_done() currently only prints out the PID and the status.
-    a) Add the printing of the information in the PCB including the number
-        of times it was interrupted, the number of times it was context
-        switched (this may be fewer than the interrupts if a process
-        becomes the only non-idle process in the ready queue), and the total
-        system time the process took.
-    b) Change the state to TERMINATED.
-    c) Start the idle process to use the rest of the time slice.
-*/
 
 	cout << "Process " << running->name << " was:\n";
 	cout << "interrupted " << running->interrupts << " time(s)\n";
@@ -449,47 +360,14 @@ void process_done (int signum)
             }
         }
     }
-
+	kill(running->pid, SIGSTOP);
     WRITE("---- leaving child_done\n");
-
-/*
-	cout << "Process " << running->name << " was:\n";
-	cout << "interrupted " << running->interrupts << " time(s)\n";
-	cout << "switched " << running->switches << " time(s)\n";
-	cout << "and ran for " << sys_time - running->started << " second(s)\n";
-	running->state = TERMINATED;
-	running = idle;
-
-
-
-    assert (signum == SIGCHLD);
-
-    int status, cpid;
-
-    cpid = waitpid (-1, &status, WNOHANG);
-
-    dprintt ("in process_done", cpid);
-
-    if  (cpid == -1)
-    {
-        perror ("waitpid");
-    }
-    else if (cpid == 0)
-    {
-        if (errno == EINTR) { return; }
-        perror ("no children");
-    }
-    else
-    {
-        dprint (WEXITSTATUS (status));
-    }
-*/
 }
 
 void process_trap(int signum) 
 {
 /*
-You'll need to create a SIGTRAP ISR that reads the request and sends back a response. Implement at least the listing of the names of all the current processes and the system time, and implement a child process that requests both.
+Instructions: You'll need to create a SIGTRAP ISR that reads the request and sends back a response. Implement at least the listing of the names of all the current processes and the system time, and implement a child process that requests both.
 */
     assert (signum == SIGTRAP);
     WRITE("---- entering process_trap\n");
@@ -498,34 +376,57 @@ You'll need to create a SIGTRAP ISR that reads the request and sends back a resp
     ** poll all the pipes as we don't know which process sent the trap, nor
     ** if more than one has arrived.
     */
-
-	int a = (sys_time - running->started);
-	char *intStr = itoa(a);
-	//string str = string(intStr);
-
 	for (int i = 0; i < NUM_PIPES; i+=2)
     	{
-        char buf[1024];
-        int num_read = read (running->pipes[P2K][READ_END], buf, 1023);
-        if (num_read > 0)
-        {
-            buf[num_read] = '\0';
-            WRITE("kernel read: ");
-            WRITE(buf);
-            WRITE("\n");
-
-            // respond
-            const char *message = "from the kernel to the process \n";
-            write (running->pipes[K2P][WRITE_END], message, strlen (message));
-
-	    const char *message2 = intStr;
-            write (running->pipes[K2P][WRITE_END], message2, strlen (message));
-
+        	char buf[1024];
+        	int num_read = read (running->p2k[READ_END], buf, 1023);
+		//cout << running->p2k[0] << "\n";
+        	if (num_read > 0)
+        	{	
+			// respond
+            		const char *message = "from the kernel to the process \n";
+            		write (running->k2p[WRITE_END], message, strlen (message));
+			
+			if(buf == "Please send the list of processes");
+			{
+				
+				// Bob helped me with this section of code, "Dong Lee". All used was the string concatination. 
+				// I already had the processes talking to each other through the pipes. 
+				char toChild[1024];
+				strcpy(toChild, "The list of processes is: ");
 		
-		kill(running->pid, SIGSTOP);
-        }
-    }
-    WRITE("---- leaving process_trap\n");
+				list<PCB*>::iterator it; 
+				for ( it = processes.begin(); it != processes.end(); it++)
+				{
+					strcat(toChild, (*it)->name);
+					strcat(toChild, " ");
+				}
+				strcat(toChild, "\n");
+				write (running->k2p[WRITE_END], toChild, strlen (toChild));
+				
+			}
+			
+			if(buf == "Please send the system time");
+			{
+				// Again bob helped
+				char mess[1024];
+				char time[1024];
+				strcpy(mess, "The system time is: ");
+				sprintf(time, "%d", sys_time);
+				strcat(mess, time);
+				strcat(mess, "\n");
+				write (running->k2p[WRITE_END], mess, strlen (mess));
+			}
+
+            		buf[num_read] = '\0';
+            		WRITE("kernel read: ");
+            		WRITE(buf);
+            		WRITE("\n");
+
+			//kill(running->pid, SIGSTOP);
+        	}
+    	}
+    	WRITE("---- leaving process_trap\n");
 }
 /*
 ** stop the running process and index into the ISV to call the ISR
@@ -604,8 +505,7 @@ void create_idle ()
 
 
 //Luke Smith helped me with this part, its a mirror of create_idle
-
-// I will probalby change this so that i dont fork and execl here since i do it later on. 
+ 
 void create_process(const char *program) {
 
 		PCB *proc = new (PCB);
@@ -615,35 +515,15 @@ void create_process(const char *program) {
 		proc->interrupts = 0;
 		proc->switches = 0;
 		proc->started = sys_time;
-		new_list.push_back(proc);	
+			
+        	assert (pipe (proc->p2k) == 0);
+       		assert (pipe (proc->k2p) == 0);
 
-/*	
-	int procpid;
+        	assert (fcntl (proc->p2k[READ_END], F_SETFL,
+            		fcntl(proc->p2k[READ_END], F_GETFL) | O_NONBLOCK) == 0);
 
-	if ((procpid = fork()) >= 0){
-		perror("fork");
-	}
-	
-	if (procpid == 0) {
-    		dprintt(program, getpid());
-		execl(program, program, NULL);
-		perror("execl failed");
-	} else {
 
-		if(kill(procpid, SIGSTOP) != -1){
-			perror("kill");
-		}
-		PCB *proc = new (PCB);
-		proc->state = NEW;
-		proc->name = program;
-		//proc->pid = procpid;
-		proc->ppid = 0;
-		proc->interrupts = 0;
-		proc->switches = 0;
-		proc->started = sys_time;
 		new_list.push_back(proc);
-		}
-*/
 }
 
 int main (int argc, char **argv)
@@ -680,3 +560,4 @@ int main (int argc, char **argv)
     }
 
 }
+
