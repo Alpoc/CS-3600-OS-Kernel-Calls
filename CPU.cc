@@ -31,20 +31,17 @@ This program sets up pipes for child processes so that the parrent "CPU.cc" can 
 
 // you don't really know at this point how many childern you'll have, so
 // don't hard code it here.
-#define NUM_CHILDREN 5
+//#define NUM_CHILDREN 5
 
 // the way you use this in your PCB, this needs to be 2. 2 pipes for 2-way
 // communication between the kernel and a child
 #define NUM_PIPES 2
-
-// you don't need these
-// #define P2K i
-// #define K2P i+1
+#define NUM_CHILDREN
 
 #define WRITE(a) { const char *foo = a; write (1, foo, strlen (foo)); }
 
 // this isn't the right place to create any of the pipes.
-int pipes[NUM_PIPES][2];
+//int pipes[NUM_PIPES][2];
 int child_count = 0;
 
 #define NUM_SECONDS 20
@@ -187,6 +184,14 @@ struct sigaction *create_handler (int signum, void (*handler)(int))
     assert (sigaction (signum, action, NULL) == 0);
     return (action);
 }
+
+/*
+** Async-safe integer to a string. i is assumed to be positive. The number
+** of characters converted is returned; -1 will be returned if bufsize is
+** less than one or if the string isn't long enough to hold the entire
+** number. Numbers are right justified. The base must be between 2 and 16;
+** otherwise the string is filled with spaces and -1 is returned.
+*/
 
 int eye2eh (int i, char *buf, int bufsize, int base)
 {
@@ -353,14 +358,21 @@ void process_done (int signum)
             WRITE("process exited:");
             WRITE(buf);
             WRITE("\n");
-            child_count++;
-            if (child_count == NUM_CHILDREN)
-            {
-                kill (0, SIGTERM);
-            }
+            //child_count++;
+            //if (child_count == NUM_CHILDREN)
+            //{
+            //    kill (0, SIGTERM);
+            //}
         }
     }
-	kill(running->pid, SIGSTOP);
+
+    if (kill (running->pid, SIGSTOP) == -1)
+    {
+        perror ("kill");
+        return;
+    }
+
+    //kill(running->pid, SIGSTOP);
     WRITE("---- leaving child_done\n");
 }
 
