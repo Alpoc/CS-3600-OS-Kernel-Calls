@@ -34,19 +34,19 @@ int main (int argc, char** argv)
     //const char *message = "from the process to the kernel \n";
     //write (TO_KERNEL, message, strlen (message));
 
-    const char *message3 = "Please send the list of processes";
+    //const char *message3 = "Please send the list of processes";
+    const char *message3 = "p";
     write (TO_KERNEL, message3, strlen (message3));
-    kill (ppid, SIGTRAP);
-    sleep(1);
+    //kill (ppid, SIGTRAP);
 
-    const char *message2 = "Please send the system time";
+    //const char *message2 = "Please send the system time";
+    const char *message2 = "t";
     write (TO_KERNEL, message2, strlen (message2));
     kill (ppid, SIGTRAP);
-    sleep(1);
 
-    printf ("trapping to %d in pid %d\n", ppid, pid);
-    kill (ppid, SIGTRAP);
-    sleep(1);
+    //printf ("trapping to %d in pid %d\n", ppid, pid);
+    //kill (ppid, SIGTRAP);
+    //sleep(1);
 
     printf ("reading in pid %d\n", pid);
     char buf[1024];
