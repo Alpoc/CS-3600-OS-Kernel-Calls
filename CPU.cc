@@ -395,13 +395,22 @@ Instructions: You'll need to create a SIGTRAP ISR that reads the request and sen
 		//cout << running->p2k[0] << "\n";
         	if (num_read > 0)
         	{	
+
+			buf[num_read] = '\0';
+            		WRITE("kernel read: ");
+            		WRITE(buf);
+            		WRITE("\n");
+			
 			// respond
             		const char *message = "from the kernel to the process \n";
-            		write (running->k2p[WRITE_END], message, strlen (message));
+            		assert (write (running->k2p[WRITE_END], message, strlen (message)) != -1);
 			
-			if(buf == "Please send the list of processes");
+			//if (str1.compare(6,5,"apple") == 0)
+			//if(buf == "Please send the list of processes")
+			//if (buf.strcmp("Please send the list of processes") == 0)
+			if (strcmp("Please send the list of processes", buf) == 0)
 			{
-				
+				cout << "Child requested the process list\n";
 				// Bob helped me with this section of code, "Dong Lee". All used was the string concatination. 
 				// I already had the processes talking to each other through the pipes. 
 				char toChild[1024];
@@ -418,8 +427,10 @@ Instructions: You'll need to create a SIGTRAP ISR that reads the request and sen
 				
 			}
 			
-			if(buf == "Please send the system time");
+			//if(buf == "Please send the system time")
+			if (strcmp("Please send the system time", buf) == 0)
 			{
+				WRITE("Child Requested the system time \n");
 				// Again bob helped
 				char mess[1024];
 				char time[1024];
@@ -430,10 +441,6 @@ Instructions: You'll need to create a SIGTRAP ISR that reads the request and sen
 				write (running->k2p[WRITE_END], mess, strlen (mess));
 			}
 
-            		buf[num_read] = '\0';
-            		WRITE("kernel read: ");
-            		WRITE(buf);
-            		WRITE("\n");
 
 			//kill(running->pid, SIGSTOP);
         	}

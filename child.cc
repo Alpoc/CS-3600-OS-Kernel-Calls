@@ -31,17 +31,22 @@ int main (int argc, char** argv)
     int ppid = getppid();
 
     printf ("writing in pid %d\n", pid);
-    const char *message = "from the process to the kernel \n";
-    write (TO_KERNEL, message, strlen (message));
-
-    const char *message2 = "Please send the system time \n";
-    write (TO_KERNEL, message2, strlen (message2));
+    //const char *message = "from the process to the kernel \n";
+    //write (TO_KERNEL, message, strlen (message));
 
     const char *message3 = "Please send the list of processes";
     write (TO_KERNEL, message3, strlen (message3));
+    kill (ppid, SIGTRAP);
+    sleep(1);
+
+    const char *message2 = "Please send the system time";
+    write (TO_KERNEL, message2, strlen (message2));
+    kill (ppid, SIGTRAP);
+    sleep(1);
 
     printf ("trapping to %d in pid %d\n", ppid, pid);
     kill (ppid, SIGTRAP);
+    sleep(1);
 
     printf ("reading in pid %d\n", pid);
     char buf[1024];
