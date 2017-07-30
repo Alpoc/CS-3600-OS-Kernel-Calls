@@ -376,6 +376,7 @@ void process_done (int signum)
     WRITE("---- leaving child_done\n");
 }
 
+
 void process_trap(int signum) 
 {
 /*
@@ -405,43 +406,69 @@ Instructions: You'll need to create a SIGTRAP ISR that reads the request and sen
             		const char *message = "from the kernel to the process \n";
             		assert (write (running->k2p[WRITE_END], message, strlen (message)) != -1);
 			
-			for(int i = 0; i < 1024; i++)
-			{			
+			//for(int i = 0; i < 1024; i++)
+			//{			
 
 			//if (strcmp("Please send the list of processes", buf) == 0)
-			if (buf[i] == 'p')
-			{
-				WRITE("Child requested the process list\n");
-				// Bob helped me with this section of code, "Dong Lee". All used was the string concatination. 
-				// I already had the processes talking to each other through the pipes. 
-				char toChild[1024];
-				strcpy(toChild, "The list of processes is: ");
-		
-				list<PCB*>::iterator it; 
-				for ( it = processes.begin(); it != processes.end(); it++)
+				// I should of created a seperate method to handle the string creations but it was giving
+				// me trouble and I was running out of time
+				//if ( (buf[i] == 'p') && (buf[i+1] == 't'))
+				if ( strcmp("pt", buf) == 0)
 				{
-					strcat(toChild, (*it)->name);
-					strcat(toChild, " ");
+					WRITE("Child requested the process list and system time \n");
+					char message[1024];
+					char time[1024];
+
+					strcpy(message, "The list of processes is: ");
+					list<PCB*>::iterator it; 
+					for ( it = processes.begin(); it != processes.end(); it++)
+					{
+						strcat(message, (*it)->name);
+						strcat(message, " ");
+					}
+					strcat(message, "\n");
+					
+					strcat(message, "The system time is: ");
+					sprintf(time, "%d", sys_time);
+					strcat(message, time);
+					strcat(message, "\n");
+					write (running->k2p[WRITE_END], message, strlen (message));
+					
 				}
-				strcat(toChild, "\n");
-				write (running->k2p[WRITE_END], toChild, strlen (toChild));
+
+				else if (buf[0] == 'p')
+				{
+					WRITE("Child requested the process list\n");
+					// Bob helped me with this section of code, "Dong Lee". All used was the string concatination. 
+					// I already had the processes talking to each other through the pipes. 
+					char toChild[1024];
+					strcpy(toChild, "The list of processes is: ");
+		
+					list<PCB*>::iterator it; 
+					for ( it = processes.begin(); it != processes.end(); it++)
+					{
+						strcat(toChild, (*it)->name);
+						strcat(toChild, " ");
+					}
+					strcat(toChild, "\n");
+					write (running->k2p[WRITE_END], toChild, strlen (toChild));
 				
-			}
+				}
 			
-			//if (strcmp("Please send the system time", buf) == 0)
-			if (buf[i] == 't')
-			{
-				WRITE("Child Requested the system time \n");
-				// Again bob helped
-				char mess[1024];
-				char time[1024];
-				strcpy(mess, "The system time is: ");
-				sprintf(time, "%d", sys_time);
-				strcat(mess, time);
-				strcat(mess, "\n");
-				write (running->k2p[WRITE_END], mess, strlen (mess));
-			}
-			}
+				//if (strcmp("Please send the system time", buf) == 0)
+				else if (buf[0] == 't')
+				{
+					WRITE("Child Requested the system time \n");
+					// Again bob helped
+					char mess[1024];
+					char time[1024];
+					strcpy(mess, "The system time is: ");
+					sprintf(time, "%d", sys_time);
+					strcat(mess, time);
+					strcat(mess, "\n");
+					write (running->k2p[WRITE_END], mess, strlen (mess));
+				}
+			//}
 			//kill(running->pid, SIGSTOP);
         	}
     	}
