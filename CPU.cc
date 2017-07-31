@@ -330,7 +330,6 @@ void process_done (int signum)
 	running->state = TERMINATED;
 	running = idle;
 
-
     assert (signum == SIGCHLD);
     WRITE("---- entering child_done\n");
 
@@ -372,7 +371,7 @@ void process_done (int signum)
         return;
     }
 
-    //kill(running->pid, SIGSTOP);
+ 
     WRITE("---- leaving child_done\n");
 }
 
