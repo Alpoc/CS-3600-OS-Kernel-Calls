@@ -405,10 +405,7 @@ Instructions: You'll need to create a SIGTRAP ISR that reads the request and sen
             		const char *message = "from the kernel to the process \n";
             		assert (write (running->k2p[WRITE_END], message, strlen (message)) != -1);
 			
-			//for(int i = 0; i < 1024; i++)
-			//{			
 
-			//if (strcmp("Please send the list of processes", buf) == 0)
 				// I should of created a seperate method to handle the string creations but it was giving
 				// me trouble and I was running out of time
 				//
@@ -431,7 +428,7 @@ Instructions: You'll need to create a SIGTRAP ISR that reads the request and sen
 					sprintf(time, "%d", sys_time);
 					strcat(message, time);
 					strcat(message, "\n");
-					write (running->k2p[WRITE_END], message, strlen (message));
+					assert (write (running->k2p[WRITE_END], message, strlen (message)) != -1);
 					
 				}
 
@@ -450,11 +447,10 @@ Instructions: You'll need to create a SIGTRAP ISR that reads the request and sen
 						strcat(toChild, " ");
 					}
 					strcat(toChild, "\n");
-					write (running->k2p[WRITE_END], toChild, strlen (toChild));
+					assert (write (running->k2p[WRITE_END], toChild, strlen (toChild)) != -1);
 				
 				}
 			
-				//if (strcmp("Please send the system time", buf) == 0)
 				else if (buf[0] == 't')
 				{
 					WRITE("Child Requested the system time \n");
@@ -465,10 +461,8 @@ Instructions: You'll need to create a SIGTRAP ISR that reads the request and sen
 					sprintf(time, "%d", sys_time);
 					strcat(mess, time);
 					strcat(mess, "\n");
-					write (running->k2p[WRITE_END], mess, strlen (mess));
+					assert (write (running->k2p[WRITE_END], mess, strlen (mess)) != -1);
 				}
-			//}
-			//kill(running->pid, SIGSTOP);
         	}
     	}
     	WRITE("---- leaving process_trap\n");
