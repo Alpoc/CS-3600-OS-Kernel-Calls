@@ -403,7 +403,10 @@ Instructions: You'll need to create a SIGTRAP ISR that reads the request and sen
 			
 			// respond
             		const char *message = "from the kernel to the process \n";
-            		assert (write (running->k2p[WRITE_END], message, strlen (message)) != -1);
+            		if (write (running->k2p[WRITE_END], message, strlen (message)) != -1)
+			{
+				perror("write");
+			}
 			
 
 				// I should of created a seperate method to handle the string creations but it was giving
@@ -428,7 +431,10 @@ Instructions: You'll need to create a SIGTRAP ISR that reads the request and sen
 					sprintf(time, "%d", sys_time);
 					strcat(message, time);
 					strcat(message, "\n");
-					assert (write (running->k2p[WRITE_END], message, strlen (message)) != -1);
+					if (write (running->k2p[WRITE_END], message, strlen (message)) == -1)
+					{
+						perror("write");
+					}
 					
 				}
 
@@ -447,8 +453,11 @@ Instructions: You'll need to create a SIGTRAP ISR that reads the request and sen
 						strcat(toChild, " ");
 					}
 					strcat(toChild, "\n");
-					assert (write (running->k2p[WRITE_END], toChild, strlen (toChild)) != -1);
-				
+					if (write (running->k2p[WRITE_END], toChild, strlen (toChild)) == -1)
+					{
+						perror("write");
+					}
+					
 				}
 			
 				else if (buf[0] == 't')
@@ -461,7 +470,10 @@ Instructions: You'll need to create a SIGTRAP ISR that reads the request and sen
 					sprintf(time, "%d", sys_time);
 					strcat(mess, time);
 					strcat(mess, "\n");
-					assert (write (running->k2p[WRITE_END], mess, strlen (mess)) != -1);
+					if (write (running->k2p[WRITE_END], mess, strlen (mess)) == -1)
+					{
+						perror("write");
+					}
 				}
         	}
     	}
