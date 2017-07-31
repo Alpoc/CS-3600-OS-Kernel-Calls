@@ -411,8 +411,8 @@ Instructions: You'll need to create a SIGTRAP ISR that reads the request and sen
 			//if (strcmp("Please send the list of processes", buf) == 0)
 				// I should of created a seperate method to handle the string creations but it was giving
 				// me trouble and I was running out of time
-				//if ( (buf[i] == 'p') && (buf[i+1] == 't'))
-				if ( strcmp("pt", buf) == 0)
+				//
+				if ( strcmp("pt", buf) == 0 || strcmp("tp", buf) == 0)
 				{
 					WRITE("Child requested the process list and system time \n");
 					char message[1024];
